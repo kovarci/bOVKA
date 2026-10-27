@@ -12,6 +12,7 @@ class Scan {
     var editable = false
     /** Bas de la barre de stories, haut de la barre d'onglets, et accueil sélectionné. */
     var trayBottom = 0
+    var topBarBottom = 0
     var navTop = 0
     var onFeed = false
     val redirectById = ArrayList<AccessibilityNodeInfo>()
@@ -29,22 +30,30 @@ object Scanner {
         var seen = 0
         val r = Rect()
         val screenH = Resources.getSystem().displayMetrics.heightPixels
+        val screenW = Resources.getSystem().displayMetrics.widthPixels
         while (stack.isNotEmpty() && seen < MAX_NODES) {
             val node = stack.removeAt(stack.size - 1)
             seen++
             val id = node.viewIdResourceName?.substringAfter('/')
             val label = (node.contentDescription ?: node.text)?.toString()
 
+            // Instagram garde la page des messages hors écran dans le même ViewPager : seules les vues
+            // réellement affichées comptent pour savoir où l'on est.
+            val shown = onScreen(node, r, screenW, screenH)
+
             // Un champ de saisie = on est dans une conversation.
-            if (node.isEditable) s.editable = true
+            if (shown && node.isEditable) s.editable = true
 
             if (id != null) {
                 if (!s.blocked && rule.blockIds?.containsMatchIn(id) == true) {
                     s.blocked = true
                     s.reason = id
                 }
-                if (rule.safeIds?.containsMatchIn(id) == true) s.safe = true
+                if (shown && rule.safeIds?.containsMatchIn(id) == true) s.safe = true
                 if (id in rule.redirectIds) s.redirectById.add(node)
+                if (shown && rule.topBarIds?.containsMatchIn(id) == true && r.height() > 0 && r.bottom < screenH * 0.3) {
+                    if (r.bottom > s.topBarBottom) s.topBarBottom = r.bottom
+                }
                 if (rule.trayIds?.containsMatchIn(id) == true && node.isVisibleToUser) {
                     node.getBoundsInScreen(r)
                     if (r.bottom > s.trayBottom) s.trayBottom = r.bottom
@@ -73,6 +82,13 @@ object Scanner {
             }
         }
         return s
+    }
+
+    /** Vue affichée à l'écran : visible, avec une surface positive dans l'écran. */
+    private fun onScreen(node: AccessibilityNodeInfo, r: Rect, screenW: Int, screenH: Int): Boolean {
+        if (!node.isVisibleToUser) return false
+        node.getBoundsInScreen(r)
+        return r.width() > 0 && r.height() > 0 && r.right > 0 && r.left < screenW && r.bottom > 0 && r.top < screenH
     }
 
     private fun matches(rx: Regex?, id: String?, label: String?): Boolean =

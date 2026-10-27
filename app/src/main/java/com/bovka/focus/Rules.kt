@@ -21,6 +21,8 @@ class AppRule(
     val redirectLabels: Regex? = null,
     /** Barre de stories du fil : le masque noir démarre juste en dessous. */
     val trayIds: Regex? = null,
+    /** Barre du haut du fil : repli pour placer le masque quand la barre de stories a défilé hors écran. */
+    val topBarIds: Regex? = null,
     /** Onglet « accueil » sélectionné : le masque ne s'affiche que là. */
     val feedSelected: Regex? = null,
     /** Compte le scroll vertical des grandes listes dans le budget. */
@@ -42,11 +44,12 @@ object Rules {
             blockSelected = rx("^clips_tab$|^reels?\\b"),
             // Les boutons de la barre du haut (action_bar_inbox_button) et la pub Threads ne comptent pas :
             // sinon l'accueil serait toujours vu comme « messages » et rien ne serait bloqué.
-            safeIds = rx("^(?!action_bar|.*button|.*threads).*(inbox|thread|composer|direct_text)|reel_viewer|story_viewer|stories_viewer"),
+            safeIds = rx("^(?!action_bar|.*button|.*threads).*(inbox|thread|composer|direct_text)|reel_viewer(?!_front_avatar|_back_avatar)|story_viewer|stories_viewer"),
             safeSelected = rx("^direct_tab$|^(messages?|messenger|direct)\\b"),
             redirectIds = listOf("direct_tab", "action_bar_inbox_button"),
             redirectLabels = rx("^(messages?|messenger|direct)\\b"),
             trayIds = rx("reels_tray|stories_tray|reel_tray"),
+            topBarIds = rx("^action_bar_LinearLayout$|^main_feed_action_bar$"),
             feedSelected = rx("^feed_tab$|^(home|accueil)\\b"),
             defaultLimitMin = 10,
         ),
