@@ -25,6 +25,7 @@ class MainActivity : Activity() {
     private lateinit var cfg: Config
     private lateinit var statusTv: TextView
     private lateinit var kicksTv: TextView
+    private lateinit var lastKickTv: TextView
 
     private val bg = Color.parseColor("#0F172A")
     private val cardColor = Color.parseColor("#1E293B")
@@ -57,8 +58,10 @@ class MainActivity : Activity() {
         val status = card()
         statusTv = label("", 18f, Color.WHITE, true)
         kicksTv = label("", 13f, muted)
+        lastKickTv = label("", 13f, muted)
         status.addView(statusTv)
         status.addView(kicksTv)
+        status.addView(lastKickTv)
         status.addView(pill("Ouvrir les réglages d'accessibilité") {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }, buttonParams())
@@ -138,6 +141,7 @@ class MainActivity : Activity() {
         statusTv.text = if (on) "● Protection active" else "○ Protection inactive"
         statusTv.setTextColor(if (on) green else amber)
         kicksTv.text = "${cfg.kicksToday()} blocage(s) aujourd'hui"
+        lastKickTv.text = cfg.lastKick().let { if (it.isEmpty()) "Aucun blocage pour l'instant" else "Dernier : $it" }
     }
 
     private fun serviceEnabled(): Boolean {

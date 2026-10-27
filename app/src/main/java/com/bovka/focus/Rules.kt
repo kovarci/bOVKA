@@ -40,7 +40,9 @@ object Rules {
             hint = "Messages et stories OK. Reels bloqués, fil limité.",
             blockIds = rx("clips_viewer|clips_swipe|clips_pager|root_clips"),
             blockSelected = rx("^clips_tab$|^reels?\\b"),
-            safeIds = rx("inbox|thread|composer|direct_text|reel_viewer|story_viewer|stories_viewer"),
+            // Les boutons de la barre du haut (action_bar_inbox_button) et la pub Threads ne comptent pas :
+            // sinon l'accueil serait toujours vu comme « messages » et rien ne serait bloqué.
+            safeIds = rx("^(?!action_bar|.*button|.*threads).*(inbox|thread|composer|direct_text)|reel_viewer|story_viewer|stories_viewer"),
             safeSelected = rx("^direct_tab$|^(messages?|messenger|direct)\\b"),
             redirectIds = listOf("direct_tab", "action_bar_inbox_button"),
             redirectLabels = rx("^(messages?|messenger|direct)\\b"),

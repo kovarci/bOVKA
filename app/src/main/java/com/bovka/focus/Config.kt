@@ -31,11 +31,15 @@ class Config(ctx: Context) {
 
     private fun day() = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
 
-    fun countKick() {
+    fun countKick(reason: String) {
         val d = day()
         val n = if (p.getString("kd", "") == d) p.getInt("kc", 0) else 0
-        p.edit().putString("kd", d).putInt("kc", n + 1).apply()
+        val at = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+        p.edit().putString("kd", d).putInt("kc", n + 1).putString("kl", "$at · $reason").apply()
     }
+
+    /** Dernier blocage, pour comprendre ce qui se passe sans passer par un dump. */
+    fun lastKick(): String = p.getString("kl", "") ?: ""
 
     fun kicksToday(): Int = if (p.getString("kd", "") == day()) p.getInt("kc", 0) else 0
 }

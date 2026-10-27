@@ -176,8 +176,9 @@ class GuardService : AccessibilityService() {
             kick(s, rule, "${rule.label} : écran bloqué", now)
             return
         }
+        // Pas d'éjection de la limite de temps si on est arrivé dans une conversation entre-temps.
         val limit = cfg.limitMin(rule) * 60_000L
-        if (limit > 0 && unsafeMs >= limit) kick(s, rule, "Temps écoulé sur ${rule.label}", now)
+        if (limit > 0 && next != Surface.SAFE && unsafeMs >= limit) kick(s, rule, "Temps écoulé sur ${rule.label}", now)
     }
 
     private fun onScroll(e: AccessibilityEvent, rule: AppRule, now: Long) {
@@ -226,7 +227,7 @@ class GuardService : AccessibilityService() {
         }
 
         hideCover()
-        cfg.countKick()
+        cfg.countKick(reason)
         scrollPx = 0
         unsafeMs = 0
         showMessage("bOVKA · $reason")
