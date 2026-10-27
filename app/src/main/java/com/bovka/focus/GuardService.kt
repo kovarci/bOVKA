@@ -196,7 +196,7 @@ class GuardService : AccessibilityService() {
         if (fromTick && cfg.debug) {
             lastDump = "app=${rule.pkg} surface=$next blocked=${s.blocked}(${s.reason}) safe=${s.safe} " +
                 "editable=${s.editable} unsafeMs=$unsafeMs scrollPx=$scrollPx " +
-                "onFeed=${s.onFeed} trayBottom=${s.trayBottom} navTop=${s.navTop} cover=${cover != null}\n" +
+                "onFeed=${s.onFeed} trayBottom=${s.trayBottom} topBarBottom=${s.topBarBottom} navTop=${s.navTop} cover=${cover != null}\n" +
                 Scanner.dump(root)
         }
 
@@ -319,13 +319,14 @@ class GuardService : AccessibilityService() {
      */
     private fun updateCover(rule: AppRule, s: Scan, surface: Surface) {
         val h = resources.displayMetrics.heightPixels
+        val top = if (s.trayBottom > 0) s.trayBottom else s.topBarBottom
         if (rule.trayIds == null || !cfg.cover(rule) || surface != Surface.NEUTRAL || !s.onFeed ||
-            s.trayBottom <= 0 || s.trayBottom > h * 0.6 || s.navTop - s.trayBottom < 150
+            top <= 0 || top > h * 0.6 || s.navTop - top < 150
         ) {
             hideCover()
             return
         }
-        showCover(s.trayBottom, s.navTop)
+        showCover(top, s.navTop)
     }
 
     private fun showCover(top: Int, bottom: Int) {
