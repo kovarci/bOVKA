@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,3 +33,15 @@ jobs:
         with:
           name: bovka-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      # Lien fixe, sans connexion si le dépôt est public :
+      # https://github.com/kovarci/bOVKA/releases/download/apk-latest/bovka.apk
+      - name: Publish APK as release apk-latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk bovka.apk
+          gh release delete apk-latest --cleanup-tag --yes || true
+          gh release create apk-latest bovka.apk --prerelease --target "$GITHUB_SHA" \
+            --title "bOVKA (dernier build)" \
+            --notes "Build de $GITHUB_SHA. Installer bovka.apk sur le téléphone."
