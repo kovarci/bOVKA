@@ -20,6 +20,10 @@ class Config(ctx: Context) {
     fun cover(rule: AppRule) = p.getBoolean("cover_${rule.pkg}", rule.trayIds != null)
     fun setCover(rule: AppRule, v: Boolean) = p.edit().putBoolean("cover_${rule.pkg}", v).apply()
 
+    /** Voile noir instantané sur les Shorts / Reels / Spotlight (écrans bloqués et miniatures). */
+    fun veil(rule: AppRule) = p.getBoolean("veil_${rule.pkg}", true)
+    fun setVeil(rule: AppRule, v: Boolean) = p.edit().putBoolean("veil_${rule.pkg}", v).apply()
+
     /** Nombre d'écrans de scroll tolérés par session avant d'être éjecté. */
     var budgetScreens: Int
         get() = p.getInt("budget", 2)

@@ -87,6 +87,13 @@ class MainActivity : Activity() {
             })
             c.addView(head)
             c.addView(label(rule.hint, 13f, muted))
+            c.addView(Switch(this).apply {
+                text = "Voile noir sur les vidéos courtes"
+                setTextColor(Color.WHITE)
+                setPadding(0, dp(10), 0, 0)
+                isChecked = cfg.veil(rule)
+                setOnCheckedChangeListener { _, v -> cfg.setVeil(rule, v) }
+            })
             if (rule.trayIds != null) {
                 c.addView(Switch(this).apply {
                     text = "Masquer le fil (noir sous les stories)"

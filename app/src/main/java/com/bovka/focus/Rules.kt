@@ -23,6 +23,12 @@ class AppRule(
     val trayIds: Regex? = null,
     /** Onglet « accueil » sélectionné : le masque ne s'affiche que là. */
     val feedSelected: Regex? = null,
+    /**
+     * Rayons et miniatures de vidéos courtes dans un écran autorisé (fil, accueil) : un voile
+     * noir est posé sur leur rectangle, tout de suite, avant même d'avoir pu les regarder.
+     */
+    val shelfIds: Regex? = null,
+    val shelfLabels: Regex? = null,
     /** Compte le scroll vertical des grandes listes dans le budget. */
     val scrollGuard: Boolean = true,
     /** Tente un "retour" avant de renvoyer à l'accueil. */
@@ -31,6 +37,14 @@ class AppRule(
 )
 
 private fun rx(pattern: String) = Regex(pattern, RegexOption.IGNORE_CASE)
+
+/** Vrai si l'id ou le libellé d'une vue correspond à l'expression (qui peut être absente). */
+fun matchesAny(rx: Regex?, id: String?, label: String?): Boolean =
+    rx != null && ((id != null && rx.containsMatchIn(id)) || (label != null && rx.containsMatchIn(label)))
+
+/** Cette vue est-elle une miniature ou un rayon de vidéos courtes à masquer ? */
+fun AppRule.isShelf(id: String?, label: String?): Boolean =
+    matchesAny(shelfIds, id, null) || matchesAny(shelfLabels, null, label)
 
 object Rules {
     val all = listOf(
@@ -48,6 +62,10 @@ object Rules {
             redirectLabels = rx("^(messages?|messenger|direct)\\b"),
             trayIds = rx("reels_tray|stories_tray|reel_tray"),
             feedSelected = rx("^feed_tab$|^(home|accueil)\\b"),
+            // « Reel by x » / « Reel de x » : miniatures des Reels dans le fil et l'explorer.
+            // Les ids en reel_* sont ceux des stories chez Instagram : on ne les touche pas.
+            shelfIds = rx("clips_(media|item|grid|cell|thumbnail|preview)"),
+            shelfLabels = rx("^reels?\\b"),
             defaultLimitMin = 10,
         ),
         AppRule(
@@ -55,6 +73,8 @@ object Rules {
             label = "Facebook",
             hint = "Stories OK. Fil, Reels et Vidéo limités. Messages : app Messenger.",
             blockSelected = rx("^(reels|video|watch|vidéos?)\\b"),
+            shelfIds = rx("reels?_(unit|carousel|shelf|thumbnail|item)"),
+            shelfLabels = rx("^reels?\\b"),
             defaultLimitMin = 5,
         ),
         AppRule(
@@ -62,6 +82,8 @@ object Rules {
             label = "Snapchat",
             hint = "Chats et stories OK. Spotlight bloqué.",
             blockSelected = rx("^spotlight\\b|spotlight_tab"),
+            shelfIds = rx("spotlight"),
+            shelfLabels = rx("^spotlight\\b"),
             defaultLimitMin = 10,
         ),
         AppRule(
@@ -70,6 +92,9 @@ object Rules {
             hint = "Shorts bloqués. Les vidéos normales restent libres.",
             blockIds = rx("reel_recycler|reel_player_page_container|reel_player|shorts_player|reel_watch"),
             blockSelected = rx("^shorts$"),
+            // Rayon Shorts de l'accueil et miniatures « … - play Short » / « … - lire le Short ».
+            shelfIds = rx("reel_(shelf|item|multi_item|thumbnail)|shorts_(shelf|thumbnail|item)"),
+            shelfLabels = rx("(play|lire( le)?)\\s+short\\b|^shorts?$"),
             scrollGuard = false,
             backFirst = true,
             defaultLimitMin = 0,

@@ -14,6 +14,8 @@ class Scan {
     var trayBottom = 0
     var navTop = 0
     var onFeed = false
+    /** Rectangles (écran) des miniatures et rayons de vidéos courtes à couvrir de noir. */
+    val shelfRects = ArrayList<Rect>()
     val redirectById = ArrayList<AccessibilityNodeInfo>()
     val redirectByLabel = ArrayList<AccessibilityNodeInfo>()
 }
@@ -21,6 +23,10 @@ class Scan {
 object Scanner {
     private const val MAX_NODES = 3000
     private const val MAX_DUMP = 700
+    private const val MAX_SHELF = 24
+    private const val MIN_SHELF_PX = 80
+    /** En dessous de cette fraction de la hauteur : barre d'onglets, jamais masquée. */
+    private const val NAV_ZONE = 0.85f
 
     fun scan(root: AccessibilityNodeInfo, rule: AppRule): Scan {
         val s = Scan()
@@ -28,7 +34,9 @@ object Scanner {
         stack.add(root)
         var seen = 0
         val r = Rect()
-        val screenH = Resources.getSystem().displayMetrics.heightPixels
+        val dm = Resources.getSystem().displayMetrics
+        val screenH = dm.heightPixels
+        val screenW = dm.widthPixels
         while (stack.isNotEmpty() && seen < MAX_NODES) {
             val node = stack.removeAt(stack.size - 1)
             seen++
@@ -50,19 +58,28 @@ object Scanner {
                     if (r.bottom > s.trayBottom) s.trayBottom = r.bottom
                 }
             }
+            if (s.shelfRects.size < MAX_SHELF && node.isVisibleToUser && rule.isShelf(id, label)) {
+                node.getBoundsInScreen(r)
+                val c = Rect(maxOf(r.left, 0), maxOf(r.top, 0), minOf(r.right, screenW), minOf(r.bottom, screenH))
+                if (c.width() >= MIN_SHELF_PX && c.height() >= MIN_SHELF_PX && c.top < screenH * NAV_ZONE &&
+                    s.shelfRects.none { it.contains(c) }
+                ) {
+                    s.shelfRects.add(c)
+                }
+            }
             if (node.isSelected) {
-                if (node.isVisibleToUser && matches(rule.feedSelected, id, label)) {
+                if (node.isVisibleToUser && matchesAny(rule.feedSelected, id, label)) {
                     node.getBoundsInScreen(r)
                     if (r.top > screenH * 0.6) {
                         s.onFeed = true
                         s.navTop = r.top
                     }
                 }
-                if (!s.blocked && matches(rule.blockSelected, id, label)) {
+                if (!s.blocked && matchesAny(rule.blockSelected, id, label)) {
                     s.blocked = true
                     s.reason = id ?: label ?: "onglet"
                 }
-                if (matches(rule.safeSelected, id, label)) s.safe = true
+                if (matchesAny(rule.safeSelected, id, label)) s.safe = true
             }
             if (label != null && node.isClickable && rule.redirectLabels?.containsMatchIn(label) == true) {
                 s.redirectByLabel.add(node)
@@ -74,9 +91,6 @@ object Scanner {
         }
         return s
     }
-
-    private fun matches(rx: Regex?, id: String?, label: String?): Boolean =
-        rx != null && ((id != null && rx.containsMatchIn(id)) || (label != null && rx.containsMatchIn(label)))
 
     /**
      * Arbre de vues lisible pour le mode diagnostic. Le texte des vues n'est PAS inclus

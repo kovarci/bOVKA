@@ -36,6 +36,8 @@ class GuardService : AccessibilityService() {
     private var overlay: View? = null
     private var cover: View? = null
     private var coverLp: WindowManager.LayoutParams? = null
+    private var veil: VeilView? = null
+    private var evalPending = false
 
     private var curPkg: String? = null
     private var leftAt = 0L
@@ -71,7 +73,7 @@ class GuardService : AccessibilityService() {
     override fun onUnbind(intent: Intent?): Boolean {
         handler.removeCallbacksAndMessages(null)
         removeOverlay()
-        hideCover()
+        hideOverlays()
         return super.onUnbind(intent)
     }
 
@@ -81,8 +83,10 @@ class GuardService : AccessibilityService() {
         if (rule == null) {
             // Une autre fenêtre passe devant (accueil, volet de notifications) : on retire le masque,
             // puis on revérifie peu après au cas où ce n'était qu'un clavier ou une bulle.
-            if (cover != null && e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && pkg != packageName) {
-                hideCover()
+            if ((cover != null || veil != null) && e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+                pkg != packageName
+            ) {
+                hideOverlays()
                 handler.postDelayed({
                     try {
                         tick()
@@ -95,11 +99,34 @@ class GuardService : AccessibilityService() {
         if (!cfg.enabled(pkg)) return
         val now = SystemClock.elapsedRealtime()
         when (e.eventType) {
-            AccessibilityEvent.TYPE_VIEW_SCROLLED -> onScroll(e, rule, now)
+            AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
+                onScroll(e, rule, now)
+                evaluate(rule, now)
+            }
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ->
-                if (now - lastEvalAt >= EVAL_GAP_MS) foreground(rule, now, false)
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> evaluate(rule, now)
         }
+    }
+
+    /**
+     * Balaye l'écran tout de suite, ou juste après le délai minimal : un événement trop rapproché
+     * n'est plus perdu (sinon le voile arriverait au tick suivant, 3 s plus tard).
+     */
+    private fun evaluate(rule: AppRule, now: Long) {
+        val wait = EVAL_GAP_MS - (now - lastEvalAt)
+        if (wait <= 0) {
+            foreground(rule, now, false)
+            return
+        }
+        if (evalPending) return
+        evalPending = true
+        handler.postDelayed({
+            evalPending = false
+            try {
+                foreground(rule, SystemClock.elapsedRealtime(), false)
+            } catch (_: Exception) {
+            }
+        }, wait)
     }
 
     /** Appelé toutes les 3 s : fait avancer le chrono même sans événement. */
@@ -107,7 +134,7 @@ class GuardService : AccessibilityService() {
         val now = SystemClock.elapsedRealtime()
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         if (!pm.isInteractive) {
-            hideCover()
+            hideOverlays()
             if (curPkg != null && leftAt == 0L) leftAt = now
             return
         }
@@ -115,12 +142,12 @@ class GuardService : AccessibilityService() {
         val pkg = root.packageName?.toString() ?: return
         val rule = Rules.byPackage[pkg]
         if (rule == null) {
-            hideCover()
+            hideOverlays()
             if (curPkg != null && leftAt == 0L) leftAt = now
             return
         }
         if (!cfg.enabled(pkg)) {
-            hideCover()
+            hideOverlays()
             return
         }
         foreground(rule, now, true)
@@ -138,11 +165,11 @@ class GuardService : AccessibilityService() {
     private fun foreground(rule: AppRule, now: Long, fromTick: Boolean) {
         val root = rootInActiveWindow ?: return
         if (root.packageName?.toString() != rule.pkg) {
-            hideCover()
+            hideOverlays()
             return
         }
         if (now < (pausedUntil[rule.pkg] ?: 0L)) {
-            hideCover()
+            hideOverlays()
             return
         }
 
@@ -164,6 +191,7 @@ class GuardService : AccessibilityService() {
         if (next == Surface.SAFE) scrollPx = 0
 
         updateCover(rule, s, next)
+        updateVeil(rule, s, next)
 
         if (fromTick && cfg.debug) {
             lastDump = "app=${rule.pkg} surface=$next blocked=${s.blocked}(${s.reason}) safe=${s.safe} " +
@@ -341,6 +369,62 @@ class GuardService : AccessibilityService() {
         }
     }
 
+    /**
+     * Voile noir instantané : tout l'écran quand c'est un écran bloqué (Shorts, Reels, Spotlight),
+     * sinon uniquement les miniatures et rayons de vidéos courtes. Jamais dans une conversation
+     * ni sur une story. Les touches passent au travers.
+     */
+    private fun updateVeil(rule: AppRule, s: Scan, surface: Surface) {
+        val rects: List<Rect> = when {
+            !cfg.veil(rule) || surface == Surface.SAFE -> emptyList()
+            surface == Surface.BLOCKED -> {
+                val dm = resources.displayMetrics
+                listOf(Rect(0, 0, dm.widthPixels, dm.heightPixels))
+            }
+            else -> s.shelfRects
+        }
+        if (rects.isEmpty()) {
+            hideVeil()
+            return
+        }
+        try {
+            val existing = veil
+            if (existing != null) {
+                existing.setRects(rects)
+                return
+            }
+            val v = VeilView(this)
+            v.setRects(rects)
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT,
+            ).apply { gravity = Gravity.TOP or Gravity.START }
+            (getSystemService(Context.WINDOW_SERVICE) as WindowManager).addView(v, params)
+            veil = v
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun hideVeil() {
+        val v = veil ?: return
+        veil = null
+        try {
+            (getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeView(v)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun hideOverlays() {
+        hideCover()
+        hideVeil()
+    }
+
     private fun hideCover() {
         val v = cover ?: return
         cover = null
@@ -362,7 +446,7 @@ class GuardService : AccessibilityService() {
 
     companion object {
         private const val TICK_MS = 3000L
-        private const val EVAL_GAP_MS = 400L
+        private const val EVAL_GAP_MS = 120L
         private const val SESSION_GAP_MS = 120_000L
         private const val MAX_GAP_MS = 20_000L
         private const val KICK_COOLDOWN_MS = 1500L

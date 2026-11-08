@@ -10,6 +10,11 @@ des écrans de scroll infini, en gardant les messages et les stories.
 | Snapchat | Chats, stories | Spotlight |
 | YouTube | Vidéos, recherche | Shorts |
 
+**Voile noir (v1.2)** : dès qu'un écran de vidéos courtes s'ouvre (Shorts, Reels, Spotlight), tout l'écran
+passe au noir immédiatement, avant l'éjection ; dans le fil et l'accueil, chaque miniature ou rayon de
+Shorts/Reels/Spotlight est recouvert d'un rectangle noir. Les touches passent au travers, et rien n'est
+masqué dans une conversation ni sur une story. Réglable par app (« Voile noir sur les vidéos courtes »).
+
 Trois mécanismes : écrans interdits (éjection immédiate), budget de scroll vertical par session
 (2 écrans par défaut), limite de temps par session hors conversations. Tout est réglable dans l'app.
 Aucune permission réseau : rien ne quitte le téléphone.

@@ -20,6 +20,9 @@ jobs:
         with:
           gradle-version: "8.9"
 
+      - name: Unit tests (règles de détection)
+        run: gradle testDebugUnitTest --no-daemon
+
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
 
