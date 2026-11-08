@@ -179,7 +179,7 @@ class GuardService : AccessibilityService() {
         val s = Scanner.scan(root, rule)
         val next = when {
             s.blocked -> Surface.BLOCKED
-            s.safe || s.editable -> Surface.SAFE
+            s.allowed -> Surface.SAFE
             else -> Surface.NEUTRAL
         }
 
@@ -233,7 +233,7 @@ class GuardService : AccessibilityService() {
         val root = rootInActiveWindow ?: return
         if (root.packageName?.toString() != rule.pkg) return
         val s = Scanner.scan(root, rule)
-        if (s.safe || s.editable) {
+        if (s.allowed) {
             surface = Surface.SAFE
             scrollPx = 0
             return

@@ -51,4 +51,11 @@ class RulesTest {
         assertTrue(matchesAny(rule(snap).blockSelected, "spotlight_tab", null))
 
     @Test fun matchesAnyIsFalseWithoutRegex() = assertFalse(matchesAny(null, "x", "y"))
+
+    // --- l'accueil visible n'est jamais un écran autorisé, même si un id de messages traîne hors écran ---
+
+    @Test fun feedWithStaleMessageIdIsNotAllowed() = assertFalse(Scan().apply { safe = true; onFeed = true }.allowed)
+    @Test fun storyViewerWithoutFeedTabIsAllowed() = assertTrue(Scan().apply { safe = true }.allowed)
+    @Test fun editableOnFeedIsAllowed() = assertTrue(Scan().apply { editable = true; onFeed = true }.allowed)
+    @Test fun plainFeedIsNotAllowed() = assertFalse(Scan().apply { onFeed = true }.allowed)
 }

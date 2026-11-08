@@ -15,6 +15,8 @@ class Scan {
     var topBarBottom = 0
     var navTop = 0
     var onFeed = false
+    /** Écran autorisé : conversation ou story. L'accueil visible (onglet sélectionné) ne l'est jamais. */
+    val allowed get() = editable || (safe && !onFeed)
     /** Rectangles (écran) des miniatures et rayons de vidéos courtes à couvrir de noir. */
     val shelfRects = ArrayList<Rect>()
     val redirectById = ArrayList<AccessibilityNodeInfo>()
